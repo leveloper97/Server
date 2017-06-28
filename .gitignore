@@ -58,6 +58,3 @@ typings/
 # dotenv environment variables file
 .env
 
-# bin/www -> it doens't need to be uploaded into git repo
-bin/www
-
