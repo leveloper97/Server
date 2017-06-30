@@ -5,9 +5,17 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
+//routers
 var index = require('./routes/index');
 var users = require('./routes/users');
-//var login = require('./routes/login');
+var login = require('./routes/login');
+var signUp = require('./routes/signUp');
+var duplicateCheck = require('./routes/duplicateCheck');
+var loginCheck = require('./routes/loginCheck');
+var postList = require('./routes/postList');
+var postDetail = require('./routes/postDetail');
+//config
+var config = require('./config/secretKey');
 
 
 var app = express();
@@ -15,6 +23,9 @@ var app = express();
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
+// set the secret key variable for jwt
+app.set('jwt-secret', config.secret);
+
 
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
@@ -26,6 +37,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 //app.use('/login',login);
 app.use('/', index);
 app.use('/users', users);
+app.use('/login', login);
+app.use('/signUp', signUp);
+app.use('/duplicateCheck', duplicateCheck);
+app.use('/loginCheck', loginCheck);
+app.use('/postList', postList);
+app.use('/postDetail', postDetail);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
