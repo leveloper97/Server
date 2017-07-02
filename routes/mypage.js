@@ -1,9 +1,25 @@
 const mysql = require('mysql');
 const pool = require('../config/db_pool');
 const express = require('express');
+const aws = require('aws-sdk');
 const router = express.Router();
+const multer = require('multer');
+const multerS3 = require('multer-s3');
+const moment = require('moment');
 const async = require('async');
 const jwtModule = require('../models/jwtModule');
+aws.config.loadFromPath('./config/aws_config.json');
+const s3 = new aws.S3();
+const upload = multer({
+    storage: multerS3({
+        s3: s3,
+        bucket: 'freety-storage',
+        acl: 'public-read',
+        key: function(req, file, cb) {
+            cb(null, Date.now() + '.' + file.originalname.split('.').pop())
+        }
+    })
+});
 
 
 /*
@@ -42,8 +58,8 @@ router.get('/modelMypage', function(req, res) {
                     callback(err, connection, null);
                 } else {
                     if (data.length !== 0) {
-                        resultModelJson.modelInfo.memberName =  data[0].member_name;
-                        resultModelJson.modelInfo.memberPhoto =data[0].member_photo;
+                        resultModelJson.modelInfo.memberName = data[0].member_name;
+                        resultModelJson.modelInfo.memberPhoto = data[0].member_photo;
 
                         //   res.status(200).send(resultModelJson);
                         callback(null, connection);
@@ -64,8 +80,8 @@ router.get('/modelMypage', function(req, res) {
                         resultModelJson.modelPhoto1 = data[0].member_photo;
 
                     }
-        //  res.status(200).send(resultModelJson);
-                  callback(null, connection);
+                    //  res.status(200).send(resultModelJson);
+                    callback(null, connection);
                 }
             });
         },
@@ -83,7 +99,7 @@ router.get('/modelMypage', function(req, res) {
 
                     }
 
-                  callback(null, connection);
+                    callback(null, connection);
                 }
             });
         },
@@ -100,8 +116,8 @@ router.get('/modelMypage', function(req, res) {
                         resultModelJson.modelPhoto3 = data[0].member_photo;
 
                     }
-        //  res.status(200).send(resultModelJson);
-                  callback(null, connection);
+                    //  res.status(200).send(resultModelJson);
+                    callback(null, connection);
                 }
             });
         },
@@ -309,6 +325,79 @@ router.get('/designerMypage', function(req, res) {
     });
 });
 
+/*
+ * 회원 프로필 사진 등록
+ * request params :
+ * member_token
+ */
+router.post('/memberPhoto', upload.single('image'), function(req, res) {
+
+    var decoded = jwtModule.decodeToken(req.headers.member_token);
+
+    var update_member_photo_task = [
+        //1. connection 가져오기
+        function(callback) {
+            pool.getConnection(function(err, connection) {
+                if (err) {
+                    console.log("getConnection error : ", err);
+                    callback(err, connection, null);
+                } else callback(null, connection);
+            });
+        },
+        // 상태 메세지 update
+        function(connection, callback) {
+            let update_member_photo_query =
+                "update  Member " +
+                " set  member_photo  = ? " +
+                "where member_id = ?";
+            let imageUrl;
+            if (!req.file) imageUrl = null;
+            else imageUrl = req.file.location;
+            let record = [
+
+                imageUrl,
+                decoded.memberId
+            ];
+            connection.query(update_member_photo_query, record, function(err, data) {
+                if (err) {
+                    console.log("insert query error : ", err);
+                    callback(err, connection, null);
+                } else {
+                    res.status(201).send({
+                        message: 'ok'
+                    });
+                    callback(null, connection);
+                }
+            });
+        },
+
+
+        //5. connection release
+        function(connection, callback) {
+            connection.release();
+            callback(null, null, '-postDetail');
+        }
+    ];
+
+    async.waterfall(update_member_photo_task, function(err, connection, result) {
+        if (connection) {
+            connection.release();
+        }
+
+        if (err) {
+            if (err != 'ok') {
+                console.log("async.waterfall error : ", err);
+                res.status(503).send({
+                    message: 'failure',
+                    detail: 'internal server error'
+                });
+            }
+        } else {
+            console.log(result);
+        }
+    });
+});
+
 
 
 
@@ -321,39 +410,38 @@ router.post('/statusMsg', function(req, res) {
 
     var decoded = jwtModule.decodeToken(req.headers.member_token);
 
-    var update_model_ststusMsg_task = [
-            //1. connection 가져오기
-            function(callback) {
-                pool.getConnection(function(err, connection) {
-                    if (err) {
-                        console.log("getConnection error : ", err);
-                        callback(err, connection, null);
-                    } else callback(null, connection);
-                });
-            },
-            // 상태 메세지 update
-            function(connection,callback) {
-              let update_model_ststusMsg_query =
-              "update  Member "+
-              " set  status_msg =? "+
-              "where member_id= ?";
-              let record = [
+    var update_designer_ststusMsg_task = [
+        //1. connection 가져오기
+        function(callback) {
+            pool.getConnection(function(err, connection) {
+                if (err) {
+                    console.log("getConnection error : ", err);
+                    callback(err, connection, null);
+                } else callback(null, connection);
+            });
+        },
+        // 상태 메세지 update
+        function(connection, callback) {
+            let update_designer_ststusMsg_query =
+                "update  Member " +
+                " set  status_msg =? " +
+                "where member_id= ?";
+            let record = [
                 req.body.statusMsg,
-                  decoded.memberId
-              ];
-              connection.query(update_model_ststusMsg_query, record, function(err, data) {
-                if(err) {
-                  console.log("insert query error : ", err);
-                  callback(err, connection, null);
+                decoded.memberId
+            ];
+            connection.query(update_designer_ststusMsg_query, record, function(err, data) {
+                if (err) {
+                    console.log("insert query error : ", err);
+                    callback(err, connection, null);
+                } else {
+                    res.status(201).send({
+                        message: 'ok'
+                    });
+                    callback(null, connection);
                 }
-                else{
-                  res.status(201).send({
-                      message: 'ok'
-                  });
-                  callback(null, connection);
-                }
-              });
-            },
+            });
+        },
 
 
         //5. connection release
@@ -361,27 +449,395 @@ router.post('/statusMsg', function(req, res) {
             connection.release();
             callback(null, null, '-postDetail');
         }
-];
+    ];
 
-async.waterfall(update_model_ststusMsg_task, function(err, connection, result) {
-    if (connection) {
-        connection.release();
-    }
-
-    if (err) {
-        if (err != 'ok') {
-            console.log("async.waterfall error : ", err);
-            res.status(503).send({
-                message: 'failure',
-                detail: 'internal server error'
-            });
+    async.waterfall(update_designer_ststusMsg_task, function(err, connection, result) {
+        if (connection) {
+            connection.release();
         }
-    } else {
-        console.log(result);
-    }
-});
+
+        if (err) {
+            if (err != 'ok') {
+                console.log("async.waterfall error : ", err);
+                res.status(503).send({
+                    message: 'failure',
+                    detail: 'internal server error'
+                });
+            }
+        } else {
+            console.log(result);
+        }
+    });
 });
 
+
+
+
+/*
+ * 디자이너 경력사항 txt 등록
+ * request params :
+ * member_token
+ */
+router.post('/careerText', function(req, res) {
+
+    var decoded = jwtModule.decodeToken(req.headers.member_token);
+
+    var update_designer_careerText_task = [
+        //1. connection 가져오기
+        function(callback) {
+            pool.getConnection(function(err, connection) {
+                if (err) {
+                    console.log("getConnection error : ", err);
+                    callback(err, connection, null);
+                } else callback(null, connection);
+            });
+        },
+        // 상태 메세지 update
+        function(connection, callback) {
+            let update_designer_careerText_query =
+                "update  Member " +
+                " set  career_text =? " +
+                "where member_id= ?";
+            let record = [
+                req.body.careerText,
+                decoded.memberId
+            ];
+            connection.query(update_designer_careerText_query, record, function(err, data) {
+                if (err) {
+                    console.log("insert query error : ", err);
+                    callback(err, connection, null);
+                } else {
+                    res.status(201).send({
+                        message: 'ok'
+                    });
+                    callback(null, connection);
+                }
+            });
+        },
+
+
+        //5. connection release
+        function(connection, callback) {
+            connection.release();
+            callback(null, null, '-postDetail');
+        }
+    ];
+
+    async.waterfall(update_designer_careerText_task, function(err, connection, result) {
+        if (connection) {
+            connection.release();
+        }
+
+        if (err) {
+            if (err != 'ok') {
+                console.log("async.waterfall error : ", err);
+                res.status(503).send({
+                    message: 'failure',
+                    detail: 'internal server error'
+                });
+            }
+        } else {
+            console.log(result);
+        }
+    });
+});
+
+/*
+ * 디자이너 포트폴리오 등록
+ * request params :
+ * member_token
+ */
+router.post('/designerPF', upload.single('image'), function(req, res) {
+
+    var decoded = jwtModule.decodeToken(req.headers.member_token);
+
+    var insert_designer_PF_task = [
+        //1. connection 가져오기
+        function(callback) {
+            pool.getConnection(function(err, connection) {
+                if (err) {
+                    console.log("getConnection error : ", err);
+                    callback(err, connection, null);
+                } else callback(null, connection);
+            });
+        },
+        // 상태 메세지 update
+        function(connection, callback) {
+            let insert_designer_PF_query =
+                "insert  into memberPhoto (member_id , member_photo , photo_type , reg_time)" +
+                "values (?, ? ,'portfolio' , ?)"
+
+                  let imageUrl;
+            let written_time = [moment(new Date()).format('YYYY-MM-DDTHH:mm:ssZ')];
+            if (!req.file) imageUrl = null;
+            else imageUrl = req.file.location;
+            let record = [
+                decoded.memberId,
+                imageUrl,
+                written_time
+            ];
+            connection.query(insert_designer_PF_query, record, function(err, data) {
+                if (err) {
+                    console.log("insert query error : ", err);
+                    callback(err, connection, null);
+                } else {
+                    res.status(201).send({
+                        message: 'ok'
+                    });
+                    callback(null, connection);
+                }
+            });
+        },
+
+
+        //5. connection release
+        function(connection, callback) {
+            connection.release();
+            callback(null, null, '-postDetail');
+        }
+    ];
+
+    async.waterfall(insert_designer_PF_task, function(err, connection, result) {
+        if (connection) {
+            connection.release();
+        }
+
+        if (err) {
+            if (err != 'ok') {
+                console.log("async.waterfall error : ", err);
+                res.status(503).send({
+                    message: 'failure',
+                    detail: 'internal server error'
+                });
+            }
+        } else {
+            console.log(result);
+        }
+    });
+});
+
+
+/*
+ * 모델 헤어상태 등록 1(앞)
+ * request params :
+ * member_token
+ */
+router.post('/modelPhoto1', upload.single('image'), function(req, res) {
+
+    var decoded = jwtModule.decodeToken(req.headers.member_token);
+
+    var update_model_hair_photo1_task = [
+        //1. connection 가져오기
+        function(callback) {
+            pool.getConnection(function(err, connection) {
+                if (err) {
+                    console.log("getConnection error : ", err);
+                    callback(err, connection, null);
+                } else callback(null, connection);
+            });
+        },
+        // 상태 메세지 update
+        function(connection, callback) {
+            let update_model_hair_photo1_query =
+                "insert  into memberPhoto (member_id , member_photo , photo_type , reg_time)" +
+                "values (?, ? ,'hairCondition1' , ?)"
+
+                  let imageUrl;
+            let written_time = [moment(new Date()).format('YYYY-MM-DDTHH:mm:ssZ')];
+            if (!req.file) imageUrl = null;
+            else imageUrl = req.file.location;
+            let record = [
+                decoded.memberId,
+                imageUrl,
+                written_time
+            ];
+            connection.query(update_model_hair_photo1_query, record, function(err, data) {
+                if (err) {
+                    console.log("insert query error : ", err);
+                    callback(err, connection, null);
+                } else {
+                    res.status(201).send({
+                        message: 'ok'
+                    });
+                    callback(null, connection);
+                }
+            });
+        },
+
+
+        //5. connection release
+        function(connection, callback) {
+            connection.release();
+            callback(null, null, '-postDetail');
+        }
+    ];
+
+    async.waterfall(update_model_hair_photo1_task, function(err, connection, result) {
+        if (connection) {
+            connection.release();
+        }
+
+        if (err) {
+            if (err != 'ok') {
+                console.log("async.waterfall error : ", err);
+                res.status(503).send({
+                    message: 'failure',
+                    detail: 'internal server error'
+                });
+            }
+        } else {
+            console.log(result);
+        }
+    });
+});
+
+/*
+ * 모델 헤어상태 등록 2(옆)
+ * request params :
+ * member_token
+ */
+router.post('/modelPhoto2', upload.single('image'), function(req, res) {
+
+    var decoded = jwtModule.decodeToken(req.headers.member_token);
+
+    var update_model_hair_photo2_task = [
+        //1. connection 가져오기
+        function(callback) {
+            pool.getConnection(function(err, connection) {
+                if (err) {
+                    console.log("getConnection error : ", err);
+                    callback(err, connection, null);
+                } else callback(null, connection);
+            });
+        },
+        // 상태 메세지 update
+        function(connection, callback) {
+            let update_model_hair_photo2_query =
+                "insert  into memberPhoto (member_id , member_photo , photo_type , reg_time)" +
+                "values (?, ? ,'hairCondition2' , ?)"
+
+                  let imageUrl;
+            let written_time = [moment(new Date()).format('YYYY-MM-DDTHH:mm:ssZ')];
+            if (!req.file) imageUrl = null;
+            else imageUrl = req.file.location;
+            let record = [
+                decoded.memberId,
+                imageUrl,
+                written_time
+            ];
+            connection.query(update_model_hair_photo2_query, record, function(err, data) {
+                if (err) {
+                    console.log("insert query error : ", err);
+                    callback(err, connection, null);
+                } else {
+                    res.status(201).send({
+                        message: 'ok'
+                    });
+                    callback(null, connection);
+                }
+            });
+        },
+
+
+        //5. connection release
+        function(connection, callback) {
+            connection.release();
+            callback(null, null, '-postDetail');
+        }
+    ];
+
+    async.waterfall(update_model_hair_photo2_task, function(err, connection, result) {
+        if (connection) {
+            connection.release();
+        }
+
+        if (err) {
+            if (err != 'ok') {
+                console.log("async.waterfall error : ", err);
+                res.status(503).send({
+                    message: 'failure',
+                    detail: 'internal server error'
+                });
+            }
+        } else {
+            console.log(result);
+        }
+    });
+});
+
+/*
+ * 모델 헤어상태 등록 3(뒤)
+ * request params :
+ * member_token
+ */
+router.post('/modelPhoto3', upload.single('image'), function(req, res) {
+
+    var decoded = jwtModule.decodeToken(req.headers.member_token);
+
+    var update_model_hair_photo3_task = [
+        //1. connection 가져오기
+        function(callback) {
+            pool.getConnection(function(err, connection) {
+                if (err) {
+                    console.log("getConnection error : ", err);
+                    callback(err, connection, null);
+                } else callback(null, connection);
+            });
+        },
+        // 상태 메세지 update
+        function(connection, callback) {
+            let update_model_hair_photo3_query =
+                "insert  into memberPhoto (member_id , member_photo , photo_type , reg_time)" +
+                "values (?, ? ,'hairCondition3' , ?)"
+
+                  let imageUrl;
+            let written_time = [moment(new Date()).format('YYYY-MM-DDTHH:mm:ssZ')];
+            if (!req.file) imageUrl = null;
+            else imageUrl = req.file.location;
+            let record = [
+                decoded.memberId,
+                imageUrl,
+                written_time
+            ];
+            connection.query(update_model_hair_photo3_query, record, function(err, data) {
+                if (err) {
+                    console.log("insert query error : ", err);
+                    callback(err, connection, null);
+                } else {
+                    res.status(201).send({
+                        message: 'ok'
+                    });
+                    callback(null, connection);
+                }
+            });
+        },
+
+
+        //5. connection release
+        function(connection, callback) {
+            connection.release();
+            callback(null, null, '-postDetail');
+        }
+    ];
+
+    async.waterfall(update_model_hair_photo3_task, function(err, connection, result) {
+        if (connection) {
+            connection.release();
+        }
+
+        if (err) {
+            if (err != 'ok') {
+                console.log("async.waterfall error : ", err);
+                res.status(503).send({
+                    message: 'failure',
+                    detail: 'internal server error'
+                });
+            }
+        } else {
+            console.log(result);
+        }
+    });
+});
 
 
 module.exports = router;
