@@ -14,9 +14,11 @@ var duplicateCheck = require('./routes/duplicateCheck');
 var loginCheck = require('./routes/loginCheck');
 var postList = require('./routes/postList');
 var postDetail = require('./routes/postDetail');
+var mypage = require('./routes/mypage');
+
 //config
 var config = require('./config/secretKey');
-
+var jwt = require('./models/jwtModule');
 
 var app = express();
 
@@ -43,6 +45,7 @@ app.use('/duplicateCheck', duplicateCheck);
 app.use('/loginCheck', loginCheck);
 app.use('/postList', postList);
 app.use('/postDetail', postDetail);
+app.use('/mypage' , mypage);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -61,5 +64,6 @@ app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.render('error');
 });
+
 
 module.exports = app;
