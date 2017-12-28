@@ -74,7 +74,7 @@ router.post('/designer/sns', function(req, res) {
       let insert_query =
       "insert into Member "+
       "(position, member_name, age, facebook_id, kakao_id, belong, belong_name, career) "+
-      "values ('D', ?, ?, ?, ?, ?, ?, ?)";
+      "values ('designer', ?, ?, ?, ?, ?, ?, ?)";
       let params = [
         req.body.memberName,
         req.body.memberAge,
@@ -110,21 +110,22 @@ router.post('/designer/sns', function(req, res) {
         if(err){
           console.log("select query error while makeToken : ",err);
           callback(err, connection, null);
-        }else{
-          if(data.length==0){   // 해당회원이 없는 경우
-            res.status(201).send({
-              message : "signup failure",
-              detail : "while making token"
-            });
-            callback(null, connection);
-          }
+         }
+      //  else{
+      //     if(data.length==0){   // 해당회원이 없는 경우
+      //       res.status(201).send({
+      //         message : "signup failure",
+      //         detail : "while making token"
+      //       });
+      //       callback(null, connection);
+      //     }
           else{   // 해당회원이 있으면 토큰 발급
             let tokenString = jwtModule.makeToken(data[0]);
             resultJson.member_token = tokenString;
             res.status(201).send(resultJson);
             callback(null, connection);
           }
-        }
+      //  }
       });
     },
     //6. connection release
@@ -220,7 +221,7 @@ router.post('/designer/email', function(req, res) {
       let insert_query =
       "insert into Member "+
       "(position, email, password, member_name, age, belong, belong_name, career) "+
-      "values ('D', ?, ?, ?, ?, ?, ?, ?)";
+      "values ('designer', ?, ?, ?, ?, ?, ?, ?)";
       let params = [
         req.body.memberEmail,
         bcryptedPassword,
@@ -358,7 +359,7 @@ router.post('/model/sns', function(req, res) {
       let insert_query =
       "insert into Member "+
       "(position, member_name, age, facebook_id, kakao_id) "+
-      "values ('M', ?, ?, ?, ?)";
+      "values ('model', ?, ?, ?, ?)";
       let params = [
         req.body.memberName,
         req.body.memberAge,
@@ -499,7 +500,7 @@ router.post('/model/email', function(req, res) {
       let insert_query =
       "insert into Member "+
       "(position, email, password, member_name, age) "+
-      "values ('M', ?, ?, ?, ?)";
+      "values ('model', ?, ?, ?, ?)";
       let params = [
         req.body.memberEmail,
         bcryptedPassword,

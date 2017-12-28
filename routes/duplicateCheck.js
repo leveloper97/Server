@@ -5,7 +5,6 @@ const router = express.Router();
 const async = require('async');
 const jwtModule = require('../models/jwtModule');
 
-
 /* 이메일 중복 확인
 * request params :
 * tempEmail(query)
@@ -73,6 +72,4 @@ router.get('/', function(req, res) {
     }
   });
 });
-
-
 module.exports = router;
